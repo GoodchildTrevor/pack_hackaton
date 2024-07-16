@@ -2,7 +2,7 @@ import pandas as pd
 import joblib
 
 # Загрузка данных и векторов
-df = pd.read_csv('all_pack_df.csv').head(10)  # Берем только первые 10 строк
+df = pd.read_csv('all_pack_df.csv')  # Берем только первые 10 строк
 loaded_vectors = joblib.load('vectors.joblib')
 
 # Проверка размерности векторов

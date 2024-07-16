@@ -8,7 +8,6 @@ df = pd.read_csv('../database/final_dataframe.csv')
 vectorizer = joblib.load('../database/tfidf_vectorizer.joblib')
 
 # Подготовка векторов из DataFrame
-# Предполагаем, что векторы сохранены в формате строки или списка, преобразуем их в numpy arrays
 vector_list = np.array([np.array(eval(vec)) for vec in df['vector']])
 
 # Создание вектора запроса
