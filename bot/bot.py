@@ -42,7 +42,7 @@ async def button(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def echo(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.message.text and not update.message.text.startswith('/'):
         if context.user_data.get('ready_for_classification', False):
-            query = "отчет по агентским вознаграждениям FTL"
+            query = update.message.text
             query_vec = vectorizer.transform([query])
             results = cosine_similarity(vector_list, query_vec).flatten()
             i = np.argsort(-results)[0]
