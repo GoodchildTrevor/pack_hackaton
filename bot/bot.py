@@ -10,9 +10,18 @@ from telegram.ext import (
 from dotenv import load_dotenv
 import os
 
+import pandas as pd
+import numpy as np
+import joblib
+from sklearn.metrics.pairwise import cosine_similarity
+
 load_dotenv()
 
 telegram_token = os.getenv("TELEGRAM_TOKEN")
+
+df = pd.read_csv('../database/final_dataframe.csv')
+vectorizer = joblib.load('../database/tfidf_vectorizer.joblib')
+vector_list = np.array([np.array(eval(vec)) for vec in df['vector']])
 
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -33,8 +42,13 @@ async def button(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def echo(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.message.text and not update.message.text.startswith('/'):
         if context.user_data.get('ready_for_classification', False):
-            sequence_to_classify = update.message.text
-            await update.message.reply_text(sequence_to_classify)
+            query = "отчет по агентским вознаграждениям FTL"
+            query_vec = vectorizer.transform([query])
+            results = cosine_similarity(vector_list, query_vec).flatten()
+            i = np.argsort(-results)[0]
+            file = df.iloc[i]['filename']
+            similarity = results[i]*100
+            await update.message.reply_text(f'Самый подходящий файл: \n {file} \n со сходством {similarity:.0f}%')
             # После отправки классификации устанавливаем флаг готовности к новой классификации
             context.user_data['ready_for_classification'] = False
 
