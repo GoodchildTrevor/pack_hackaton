@@ -7,21 +7,61 @@ from telegram.ext import (
     MessageHandler,
     filters)
 
+from elasticsearch import Elasticsearch
+
 from dotenv import load_dotenv
 import os
-
-import pandas as pd
-import numpy as np
 import joblib
-from sklearn.metrics.pairwise import cosine_similarity
+
+import warnings
+warnings.filterwarnings("ignore")
 
 load_dotenv()
 
 telegram_token = os.getenv("TELEGRAM_TOKEN")
 
-df = pd.read_csv('../database/final_dataframe.csv')
+password = os.getenv("ELASTIC_PASSWORD")
+
+es = Elasticsearch(
+    ["https://localhost:9200"],
+    http_auth=('elastic', password),
+    verify_certs=False
+)
+
 vectorizer = joblib.load('../database/tfidf_vectorizer.joblib')
-vector_list = np.array([np.array(eval(vec)) for vec in df['vector']])
+svd = joblib.load('../database/svd_model.joblib')
+
+def query_to_elastic (text):
+
+    vector = vectorizer.transform([text])
+    query_vector = svd.transform(vector)
+
+    query_vector_list = query_vector[0].tolist()
+
+    script_query = {
+        "script_score": {
+            "query": {"match_all": {}},
+            "script": {
+                "source": "cosineSimilarity(params.query_vector, 'vector') + 1.0",
+                "params": {"query_vector": query_vector_list}
+            }
+        }
+    }
+
+    response = es.search(
+        index="documents",
+        body={
+            "size": 1,
+            "query": script_query,
+            "_source": ["filename", "paragraph", "department"]
+        }
+    )
+
+    for hit in response['hits']['hits']:
+        score = (hit['_score'] - 1)*100
+        filename = hit['_source']['filename']
+
+    return score, filename
 
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -42,13 +82,8 @@ async def button(update: Update, context: ContextTypes.DEFAULT_TYPE):
 async def echo(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.message.text and not update.message.text.startswith('/'):
         if context.user_data.get('ready_for_classification', False):
-            query = update.message.text
-            query_vec = vectorizer.transform([query])
-            results = cosine_similarity(vector_list, query_vec).flatten()
-            i = np.argsort(-results)[0]
-            file = df.iloc[i]['filename']
-            similarity = results[i]*100
-            await update.message.reply_text(f'Самый подходящий файл: \n {file} \n со сходством {similarity:.0f}%')
+            score, filename = query_to_elastic(update.message.text)
+            await update.message.reply_text(f'Самый подходящий файл: \n {filename} \n со сходством {score:.0f}%')
             # После отправки классификации устанавливаем флаг готовности к новой классификации
             context.user_data['ready_for_classification'] = False
 
