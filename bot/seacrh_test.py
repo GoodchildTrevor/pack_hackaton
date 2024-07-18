@@ -1,30 +1,56 @@
+from elasticsearch import Elasticsearch
+from dotenv import load_dotenv
+import os
 import pandas as pd
-import numpy as np
 import joblib
-from sklearn.metrics.pairwise import cosine_similarity
+
+import warnings
+warnings.filterwarnings("ignore")
+
+load_dotenv()
+password = os.getenv("ELASTIC_PASSWORD")
+
+# Подключение к Elasticsearch
+es = Elasticsearch(
+    ["https://localhost:9200"],
+    http_auth=('elastic', password),
+    verify_certs=False
+)
 
 # Загрузка данных
 df = pd.read_csv('../database/final_dataframe.csv')
 vectorizer = joblib.load('../database/tfidf_vectorizer.joblib')
-
-# Подготовка векторов из DataFrame
-vector_list = np.array([np.array(eval(vec)) for vec in df['vector']])
+svd = joblib.load('../database/svd_model.joblib')
 
 # Создание вектора запроса
 query = "отчет по агентским вознаграждениям FTL"
-query_vec = vectorizer.transform([query])
+vector = vectorizer.transform([query])
+query_vector = svd.transform(vector)
 
-# Вычисление косинусного сходства
-results = cosine_similarity(vector_list, query_vec).flatten()
+# Преобразование вектора запроса в список
+query_vector_list = query_vector[0].tolist()
 
-# Поиск индексов трех самых близких документов
-top_indices = np.argsort(-results)[:3]
+script_query = {
+    "script_score": {
+        "query": {"match_all": {}},
+        "script": {
+            "source": "cosineSimilarity(params.query_vector, 'vector') + 1.0",
+            "params": {"query_vector": query_vector_list}
+        }
+    }
+}
 
-# Вывод результатов
-for i in top_indices:
-    similarity_score = results[i]
-    print(f"Similarity: {similarity_score:.4f}")
-    print(f"Paragraph: {df.iloc[i]['paragraphs'][:100]}...")
-    if 'title' in df.columns:
-        print(f"Title: {df.iloc[i]['title']}")
+response = es.search(
+    index="documents",
+    body={
+        "size": 3,
+        "query": script_query,
+        "_source": ["filename", "paragraph", "department"]
+    }
+)
+
+print("Search results:")
+for hit in response['hits']['hits']:
+    print(f"ID: {hit['_id']}, Score: {hit['_score'] - 1}")
+    print(f"Filename: {hit['_source']['filename']}")
     print("---")
