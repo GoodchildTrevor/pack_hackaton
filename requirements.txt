@@ -1,5 +1,7 @@
 python-telegram-bot==21.1.1
 python-dotenv==1.0.1
+beautifulsoup4==4.12.3
+fuzzuywuzzy==0.18.0
 elasticsearch==8.14.0
 pandas==2.2.2
 joblib==1.4.2
@@ -9,4 +11,4 @@ spacy==3.5.0
 langchain==0.2.8
 fasttext==0.9.3
 sentence-transformers==2.2.0
-https://github.com/explosion/spacy-models/releases/download/en_core_web_sm-3.5.0/en_core_web_sm-3.5.0-py3-none-any.whl
+https://github.com/explosion/spacy-models/releases/download/ru_core_news_sm-3.5.0/ru_core_news_sm-3.5.0-py3-none-any.whl
