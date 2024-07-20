@@ -5,13 +5,15 @@ from telegram.ext import (
     ContextTypes,
     CommandHandler,
     MessageHandler,
-    filters)
+    filters
+)
 
 from elasticsearch import Elasticsearch
-
 from dotenv import load_dotenv
 import os
 import joblib
+
+from seacrh_test import ElasticQuery
 
 import warnings
 warnings.filterwarnings("ignore")
@@ -19,7 +21,6 @@ warnings.filterwarnings("ignore")
 load_dotenv()
 
 telegram_token = os.getenv("TELEGRAM_TOKEN")
-
 password = os.getenv("ELASTIC_PASSWORD")
 
 es = Elasticsearch(
@@ -28,63 +29,56 @@ es = Elasticsearch(
     verify_certs=False
 )
 
-vectorizer = joblib.load('../database/tfidf_vectorizer.joblib')
+vectorizer_drk = joblib.load('../database/tfidf_vectorizer.joblib')
 svd = joblib.load('../database/svd_model.joblib')
 
-def query_to_elastic (text):
+DEPARTMENTS = ["DRK", "CMK", "OTR", "FT", "FTL"]
 
-    vector = vectorizer.transform([text])
-    query_vector = svd.transform(vector)
-
-    query_vector_list = query_vector[0].tolist()
-
-    script_query = {
-        "script_score": {
-            "query": {"match_all": {}},
-            "script": {
-                "source": "cosineSimilarity(params.query_vector, 'vector') + 1.0",
-                "params": {"query_vector": query_vector_list}
-            }
-        }
-    }
-
-    response = es.search(
-        index="documents",
-        body={
-            "size": 1,
-            "query": script_query,
-            "_source": ["filename", "paragraph", "department"]
-        }
-    )
-
-    for hit in response['hits']['hits']:
-        score = (hit['_score'] - 1)*100
-        filename = hit['_source']['filename']
-
-    return score, filename
-
+DEPARTMETS_DICT = {
+    "DRK": vectorizer_drk,
+    "CMK": vectorizer_drk,
+    "OTR": vectorizer_drk,
+    "FT": vectorizer_drk,
+    "FTL": vectorizer_drk
+}
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     keyboard = [
-        [InlineKeyboardButton("Попробовать", callback_data='start_interaction')],
+        [InlineKeyboardButton("Начать", callback_data='start_interaction')],
     ]
     reply_markup = InlineKeyboardMarkup(keyboard)
-    await update.message.reply_text('Тест')
+    await update.message.reply_text('Добро пожаловать! Нажмите кнопку "Начать", чтобы продолжить.', reply_markup=reply_markup)
 
 
 async def button(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
+
+    # Спрашиваем пользователя из какого он отдела
+    keyboard = [[InlineKeyboardButton(department, callback_data=department)] for department in DEPARTMENTS]
+    reply_markup = InlineKeyboardMarkup(keyboard)
+    await query.edit_message_text(text="Из какого вы отдела?", reply_markup=reply_markup)
+
+
+async def handle_department_selection(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
+    context.user_data['department'] = query.data
     context.user_data['ready_for_classification'] = True
-    await query.edit_message_text(text="Начать")
+    await query.edit_message_text(text=f"Вы выбрали отдел: {query.data}. Теперь введите текст для классификации.")
 
 
-async def echo(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def input_output(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if update.message.text and not update.message.text.startswith('/'):
         if context.user_data.get('ready_for_classification', False):
-            score, filename = query_to_elastic(update.message.text)
+            query = update.message.text
+            department = context.user_data.get('department', 'Unknown')
+            vectorizer = DEPARTMETS_DICT[department]
+            query_to_elastic = ElasticQuery(query=query, size=1, svd=svd, vectorizer=vectorizer)
+            score, filename = query_to_elastic.get_results()
             await update.message.reply_text(f'Самый подходящий файл: \n {filename} \n со сходством {score:.0f}%')
-            # После отправки классификации устанавливаем флаг готовности к новой классификации
+
+            # Устанавливаем флаг готовности к новой классификации
             context.user_data['ready_for_classification'] = False
 
             # Отправляем кнопку для нового запроса
@@ -106,9 +100,10 @@ app = ApplicationBuilder().token(f"{telegram_token}").build()
 app.add_handler(CommandHandler('start', start))
 
 # Обработчик для кнопок
-app.add_handler(CallbackQueryHandler(button))
+app.add_handler(CallbackQueryHandler(button, pattern='start_interaction'))
+app.add_handler(CallbackQueryHandler(handle_department_selection, pattern='^(DRK|CMK|OTR|FT|FTL)$'))
 
 # Обработчик для всех текстовых сообщений
-app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, callback=echo))
+app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, callback=input_output))
 
 app.run_polling()
