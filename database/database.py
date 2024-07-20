@@ -10,11 +10,12 @@ from sklearn.decomposition import TruncatedSVD
 import warnings
 warnings.filterwarnings("ignore")
 
-svd = TruncatedSVD(n_components=100)
+vector_size = 2000
+
+svd = TruncatedSVD(n_components=vector_size)
 
 df = pd.read_csv('all_pack_df.csv')
 vectors = joblib.load('vectors.joblib')
-print(vectors.shape[0])
 reduced_vectors = svd.fit_transform(vectors)
 vector_length = len(reduced_vectors[0])
 print(vector_length)
@@ -42,7 +43,8 @@ mapping = {
             "filename": {"type": "text"},
             "paragraph": {"type": "text"},
             "department": {"type": "text"},
-            "vector": {"type": "dense_vector", "dims": 100}
+            "link": {"type": "text"},
+            "vector": {"type": "dense_vector", "dims": vector_size}
         }
     }
 }
@@ -59,6 +61,7 @@ def doc_generator(df, index_name):
                     "filename": row['filename'],
                     "paragraph": row['paragraphs'],
                     "department": row['department'],
+                    "link": row['link'],
                     "vector": row['reduced_vector']
                 }
             }
@@ -84,7 +87,7 @@ response = es.search(
         "query": {
             "match_all": {}
         },
-        "_source": ["filename", "paragraph", "department", "vector"]  # Указываем необходимые поля
+        "_source": ["filename", "paragraph", "department", 'link', "vector"]  # Указываем необходимые поля
     }
 )
 
