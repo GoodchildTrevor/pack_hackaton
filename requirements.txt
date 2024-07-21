@@ -11,4 +11,5 @@ spacy==3.5.0
 langchain==0.2.8
 fasttext==0.9.3
 sentence-transformers==2.2.0
+gensim==4.1.2
 https://github.com/explosion/spacy-models/releases/download/ru_core_news_sm-3.5.0/ru_core_news_sm-3.5.0-py3-none-any.whl
