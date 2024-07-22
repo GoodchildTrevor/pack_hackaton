@@ -71,7 +71,7 @@ async def handle_department_selection(update: Update, context: ContextTypes.DEFA
     await query.answer()
     context.user_data['department'] = query.data
     context.user_data['ready_for_classification'] = True
-    await query.edit_message_text(text=f"Вы выбрали отдел: {query.data}. Теперь введите текст для классификации.")
+    await query.edit_message_text(text=f"Вы выбрали отдел: {query.data}. Теперь введите текст для поиска.")
 
 
 async def input_output(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -89,17 +89,17 @@ async def input_output(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
             # Отправляем кнопку для нового запроса
             keyboard = [
-                [InlineKeyboardButton("Классифицировать другой текст", callback_data='start_interaction')],
+                [InlineKeyboardButton("Найти другой источник", callback_data='start_interaction')],
             ]
             reply_markup = InlineKeyboardMarkup(keyboard)
-            await update.message.reply_text("Нажмите кнопку ниже, чтобы начать новую классификацию.", reply_markup=reply_markup)
+            await update.message.reply_text("Нажмите кнопку ниже, чтобы начать новый поиск.", reply_markup=reply_markup)
         else:
             # Если флаг не установлен, предлагаем пользователю начать классификацию
             keyboard = [
                 [InlineKeyboardButton("Попробовать", callback_data='start_interaction')],
             ]
             reply_markup = InlineKeyboardMarkup(keyboard)
-            await update.message.reply_text("Нажмите кнопку ниже, чтобы начать классификацию текста.", reply_markup=reply_markup)
+            await update.message.reply_text("Нажмите кнопку ниже, чтобы начать поиск источника.", reply_markup=reply_markup)
 
 app = ApplicationBuilder().token(f"{telegram_token}").build()
 
