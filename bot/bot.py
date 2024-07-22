@@ -30,17 +30,23 @@ es = Elasticsearch(
 )
 
 vectorizer_drk = joblib.load('../database/tfidf_vectorizer.joblib')
+vectorizer_ftl = joblib.load('../database/tfidf_vectorizer.joblib')
+vectorizer_otp = joblib.load('../database/tfidf_vectorizer.joblib')
+vectorizer_cmk = joblib.load('../database/tfidf_vectorizer.joblib')
+vectorizer_ft = joblib.load('../database/tfidf_vectorizer.joblib')
+
 svd = joblib.load('../database/svd_model.joblib')
 
-DEPARTMENTS = ["DRK", "CMK", "OTR", "FT", "FTL"]
+DEPARTMENTS = ["DRK", "FTL", "OTP", "CMK", "FT"]
 
 DEPARTMETS_DICT = {
     "DRK": vectorizer_drk,
-    "CMK": vectorizer_drk,
-    "OTR": vectorizer_drk,
-    "FT": vectorizer_drk,
-    "FTL": vectorizer_drk
+    "FTL": vectorizer_ftl,
+    "OTP": vectorizer_otp,
+    "CMK": vectorizer_cmk,
+    "FT": vectorizer_ft
 }
+
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     keyboard = [
